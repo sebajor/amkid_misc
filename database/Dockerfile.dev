@@ -1,0 +1,26 @@
+FROM python:3.8.13-bullseye
+
+ARG UID=1000
+
+RUN apt-get update
+RUN apt-get --assume-yes install python3 pip build-essential gcc make curl netcat ssh default-mysql-client
+
+RUN adduser -q --disabled-login --gecos "First Last,RoomNumber,WorkPhone,HomePhone" --uid $UID myuser
+USER myuser
+WORKDIR /home/myuser
+RUN mkdir /home/myuser/db_codes
+RUN mkdir /home/myuser/libs
+RUN mkdir /home/myuser/data
+
+
+
+COPY --chown=myuser:myuser requirements.txt requirements.txt
+RUN pip install --user -r requirements.txt
+RUN pip install ipython
+
+ENV PATH="/home/myuser/.local/bin:${PATH}"
+ENV LD_LIBRARY_PATH="/home/myuser/libs:$(LD_LIBRARY_PATH)"
+
+CMD ["bash"]
+
+

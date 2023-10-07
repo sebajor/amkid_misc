@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+
+"""
+UDP broadcast receiver to get the PLC/SAS packets sent
+once per second. They contain the azimuth and elevation
+read by the secondary encoders. The UTC time stamp is
+from the PLC.
+
+The script should work with Python 2 and 3.
+
+D. Muders, MPIfR, 09/2023
+
+Modified to dump the angles in the AMKID database.
+Please specify receiver name as input param.
+C. Heiter, MPIfR, 09/2023
+"""
+
+from __future__ import print_function
+
+import os, sys, select, socket, struct, datetime, subprocess, time
+
+def bcd2int(bcd, nibble=0):
+    if nibble == 0:
+        return int(hex(ord(bcd))[2:])
+    elif nibble == 1:
+        return int(hex(ord(bcd))[2:3])
+    else:
+        return int(hex(ord(bcd))[3:])
+
+if len(sys.argv) < 2:
+    print("Please specify receiver name as input parameter, e.g. AMKID")
+    sys.exit()
+
+check_running = subprocess.getoutput("ps -eo pid,etimes,cmd | grep recv_az_el_bc_plc_sas | grep -v grep | awk '{print $1 \" \" $2}'").strip().split("\n")
+if len(check_running) > 1:
+    processes = []
+    for line in check_running:
+        l = line.strip().split(" ")
+        processes.append([int(l[0]),int(l[1])])
+    processes = sorted(processes,key=lambda x:x[1])[1:]
+    for p in processes:
+        os.system("kill %i"%(p[0]))
+    time.sleep(1)
+
+port = 7000
+bufferSize = 26
+dumptime = 10
+databasepath = os.path.expanduser("~") + "/Database/" + sys.argv[1].upper()
+ldir = sorted(os.listdir(databasepath))[-1]
+databasepath += "/" + ldir + "/PLC_SAS"
+if not os.path.exists(databasepath):
+    os.system("mkdir %s"%(databasepath))
+azimuth = databasepath + "/Azimuth"
+elevation = databasepath + "/Elevation"
+if not os.path.exists(azimuth):
+    azi = open(azimuth,"w")
+    azi.write("#\n# %s frontend database-file\n#\n# Timestamp [TAI] Angle [deg]\n#\n"%(sys.argv[1].upper()))
+else:
+    azi = open(azimuth,"a")
+if not os.path.exists(elevation):
+    ele = open(elevation,"w")
+    ele.write("#\n# %s frontend database-file\n#\n# Timestamp [TAI] Angle [deg]\n#\n"%(sys.argv[1].upper()))
+else:
+    ele = open(elevation,"a")
+
+s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+s.bind(('', port))
+s.setblocking(0)
+last = 0
+
+while True:
+    result = select.select([s],[],[])
+    msg = result[0][0].recv(bufferSize)
+    if sys.version_info.major >= 3:
+        msg_s = msg.decode('latin-1')
+        msg_b = msg
+    else:
+        msg_s = msg_b = msg
+
+    year = bcd2int(msg_s[2])+2000
+    month = bcd2int(msg_s[3])
+    day = bcd2int(msg_s[4])
+    hour = bcd2int(msg_s[5])
+    minute = bcd2int(msg_s[6])
+    second = bcd2int(msg_s[7])
+    ms1 = bcd2int(msg_s[8])
+    ms2 = bcd2int(msg_s[9], 1)
+    az = float(struct.unpack('>l',msg_b[16:20])[0])/1000.
+    el = float(struct.unpack('>l',msg_b[20:24])[0])/1000.
+    dt = datetime.datetime(year, month, day, hour, minute, second, (ms1*10+ms2)*1000)
+    tai = dt.timestamp()+37
+    if (tai - last > dumptime-0.1):
+        azi.write("%.3f %.3f\n"%(tai,az))
+        azi.flush()
+        ele.write("%.3f %.3f\n"%(tai,el))
+        ele.flush()
+        last = tai
+
+
+    
