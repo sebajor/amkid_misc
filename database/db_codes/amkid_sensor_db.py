@@ -4,11 +4,41 @@ import time
 import datetime
 import logging
 import shutil
-import ipdb
+#import ipdb
 import json
 import mysql.connector
 import numpy as np
 from envs import *
+import argparse
+
+parser = argparse.ArgumentParser(
+    description="Code to upload data into a database")
+
+parser.add_argument("-c", "--create", dest="create", action="store_true",
+    help="Create the tables for the data.")
+
+parser.add_argument("-u", "--update", dest="update", action="store_true",
+    help='Update the database with the data that has been added since the last insertion')
+
+parser.add_argument("-t", "--track_stamp", dest="track", action="store_true",
+        help='Track the timestamp to determine the what data needs to be uploaded'
+        )
+
+parser.add_argument("-f", "--folder", dest="sensor_folder", default='/home/amkid/Database/AMKID',
+        help='Folder where all the data is saved')
+
+parser.add_argument("-ff", "--force_folder", dest="force_folder", default=None, nargs="*",
+        help="Force to upload all the data from these specific sensor folders")
+
+parser.add_argument("-tf", "--timefile", dest="timefile", default='/home/amkid/Database/db/.insertion_stamps',
+        help="Time file where the last insertion timestamp is saved")
+
+parser.add_argument("-log", "--logfile", dest="logfile", default='/home/amkid/Database/db/db.log',
+        help="log file")
+
+
+
+
 
 
 
@@ -93,7 +123,7 @@ class amkid_sensor_database():
         self.init_Lakeshore_relay_fields()
         self.init_Sumitomo_fields()
         self.init_Vacuum_fields()
-        self.init_PLC_SAS_fields()
+        #self.init_PLC_SAS_fields()
         #check if the file with the insertion times exists
         self.time_dict = {}
         for key, variable in self.Variable.items():
@@ -183,7 +213,7 @@ class amkid_sensor_database():
         Vacuum = {}
         Vacuum['folders'] = ['Vacuum/Vacuum1','Vacuum/Vacuum2']
         Vacuum['names'] = ['Vacuum'+str(x) for x in range(1,3)]
-        Vacuum['table_init'] = ["CREATE TABLE `Vacuum{}` (   `tstamp` datetime,   `pressure` double,     PRIMARY KEY (`tstamp`)) ".format(x) for x in range(1,3)]
+        Vacuum['table_init'] = ["CREATE TABLE `Vacuum{}` (   `tstamp` datetime,   `pressure` float,     PRIMARY KEY (`tstamp`)) ".format(x) for x in range(1,3)]
         Vacuum['insert'] = ["INSERT INTO Vacuum{} (tstamp, pressure) VALUES ('%s',%s)".format(x) for x in range(1,3)]
         Vacuum['query'] = ["SELECT tstamp,pressure  FROM  Vacuum{} WHERE tstamp BETWEEN '%s' AND '%s'".format(self.mysql_keys['database'], x) for x in range(1,3)]
         Vacuum['last_timestamp'] = [None]*2
@@ -293,6 +323,8 @@ class amkid_sensor_database():
                         ))
                     filename = os.path.join(folder, file)
                     stamp, data = read_file_type1(filename)
+                    if(len(stamp)==0):
+                        pass
                     last_stamp = None
                     ####debug
                     last_time_dict = self.time_dict[keys][count]
@@ -379,35 +411,46 @@ class amkid_sensor_database():
 
 
 if __name__ == '__main__':
-    sensor_local_folder = '../data'
+    args = parser.parse_args()
+    if(args.create):
+        connector = mysql.connector.connect(
+            host = mysql_keys['host'],
+            port = mysql_keys['port'],
+            user = mysql_keys['user'],
+            password = mysql_keys['password']
+            )
+        cursor = connector.cursor()
+        #cursor.execute('drop database '+mysql_keys['database'])
+        cursor.execute('create database '+mysql_keys['database'])
+        cursor.close()
+        connector.close()
+        time.sleep(1)
+        amkid_db = amkid_sensor_database(mysql_keys)
+        print('Creating tables')
+        amkid_db.create_tables()
+
+    if(args.update):
+        amkid_db = amkid_sensor_database(mysql_keys,
+                sensor_folder=args.folder,
+                timefile=arge.timefile,
+                logfile=args.logfile,
+                loglevel='DEBUG'
+                )
+        amkid_db.update_database()
+
+    if(args.force_folder):
+        amkid_db = amkid_sensor_database(mysql_keys,
+                sensor_folder=args.folder,
+                timefile=args.timefile,
+                logfile=args.logfile,
+                loglevel='DEBUG'
+                )
+        amkid_db.update_database(args.force_folder, track_timestamp=args.track
+                )
+
+
     folders = os.listdir(sensors_local_folder)
     folders.sort()
-    ##initialize the database
-    """
-    mysql_keys = {
-        'host':'localhost',
-        'port':33060,
-        'user':'root',
-        'password':'amkid',
-        'database':'test'
-        }
-    """
-    connector = mysql.connector.connect(
-        host = mysql_keys['host'],
-        port = mysql_keys['port'],
-        user = mysql_keys['user'],
-        password = mysql_keys['password']
-        )
-    cursor = connector.cursor()
-    #cursor.execute('drop database '+mysql_keys['database'])
-    cursor.execute('create database '+mysql_keys['database'])
-    cursor.close()
-    connector.close()
-    time.sleep(1)
-    ###
-    amkid_db = amkid_sensor_database(mysql_keys)
-    print('Creating tables')
-    amkid_db.create_tables()
 
     folders = [os.path.join(sensors_local_folder, x) for x in folders]
     print("Populating the tables")

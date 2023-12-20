@@ -1,7 +1,17 @@
 ###
 ###
+###
+remote_ssh_keys = {
+        'ip': '10.0.2.106',
+        'port':22,
+        'user':'amkid',
+        'password':'amkid_2013',
+        }
+
+###
 ###database parameters
 ###
+"""
 mysql_keys = {
         'host':'localhost',
         'port':33060,
@@ -9,12 +19,13 @@ mysql_keys = {
         'password':'amkid',
         'database':'test'
         }
+"""
 ###
 ###sensors 
 ###
 
 sensors_remote_folder = '/home/amkid/Database/AMKID'
-sensors_local_folder = '../data'
+sensors_local_folder = '../AMKID'
 
 ##Data to save in the 
 
@@ -23,7 +34,6 @@ Lakeshore_temp = {}
 Lakeshore_relay ={}
 Sumitomo = {}
 Vacuum = {}
-PLC_SAS = {}
 
 
 ##we need double presicion in the timestamp otherwise all the data is approximated and have the same key
@@ -68,11 +78,7 @@ Vacuum['table_init'] = ["CREATE TABLE `Vacuum{}` (   `tstamp` datetime,   `press
 Vacuum['insert'] = ["INSERT INTO Vacuum{} (tstamp, pressure) VALUES ('%s',%s)".format(x) for x in range(1,3)]
 Vacuum['query'] = ["SELECT tstamp,pressure  FROM  Vacuum{} WHERE tstamp BETWEEN '%s' AND '%s'".format(mysql_keys['database'], x) for x in range(1,3)]
 
-PLC_SAS['folders'] = ['PLC_SAS/Azimuth', 'PLC_SAS/Elevation']
-PLC_SAS['names'] = ['Azimuth', 'Elevation']
-PLC_SAS['table_init'] = ["CREATE TABLE `{}` (   `tstamp` datetime,   `deg` float,     PRIMARY KEY (`tstamp`)) ".format(x) for x in ['Azimuth','Elevation']]
-PLC_SAS['insert'] = ["INSERT INTO {} (tstamp, deg) VALUES ('%s',%s)".format(x) for x in ['Azimuth','Elevation']]
-PLC_SAS['query'] = ["SELECT tstamp,deg  FROM  {}.{}     WHERE tstamp BETWEEN '%s' AND '%s'".format(mysql_keys['database'], PLC_SAS['names'][x]) for x in range(2)]
 
-Variables = [Cryocon, Lakeshore_temp, Sumitomo, PLC_SAS] #, Vacuum, Lakeshore_relay]
+
+Variables = [Cryocon, Lakeshore_temp, Sumitomo] #, Vacuum, Lakeshore_relay]
 
