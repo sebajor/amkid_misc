@@ -1,17 +1,6 @@
 ###
-###
-###
-remote_ssh_keys = {
-        'ip': '10.0.2.106',
-        'port':22,
-        'user':'amkid',
-        'password':'amkid_2013',
-        }
-
-###
 ###database parameters
 ###
-"""
 mysql_keys = {
         'host':'localhost',
         'port':33060,
@@ -19,7 +8,6 @@ mysql_keys = {
         'password':'amkid',
         'database':'test'
         }
-"""
 ###
 ###sensors 
 ###

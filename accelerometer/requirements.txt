@@ -1,0 +1,7 @@
+matplotlib
+numpy
+scipy
+sounddevice
+mysql-connector-python
+#pymysql
+
